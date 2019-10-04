@@ -1,0 +1,114 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Pipeline to deploy codepipeline serverless-by-matrix project
+
+Parameters:
+  ProjectName:
+    Description: serverless-by-matrix source code
+    Type: String
+    Default: serverless-by-matrix
+  Environment:
+    Description: serverless-by-matrix Environment 
+    Type: String
+    AllowedValues:
+      - staging
+      - production
+  OAuthToken:
+    Description: OAuthToken to access github
+    Type : String
+    NoEcho: true
+
+Mappings:
+  Environments:
+    staging:
+      JsonPath: '$.ref'
+      MatchEquals: refs/heads/{Branch}
+    production:
+      JsonPath: '$.ref'
+      MatchEquals: refs/heads/{Branch}
+
+Resources:
+  ArtifactsS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: serverless-by-matrix
+      AccessControl: BucketOwnerFullControl
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+        - ServerSideEncryptionByDefault:
+            SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      ServiceRole: arn:aws:iam::${AWS::AccountId}:role/CodeBuildExecutionRole
+      Artifacts:
+        Type: CODEPIPELINE
+      BadgeEnabled: False
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/docker:18.09.0
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: !Sub buildspec.yml
+      TimeoutInMinutes: 30
+
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      RoleArn: arn:aws:iam::${AWS::AccountId}:role/CodePipelineExecutionRole
+      Name: aws-devops-course
+      Stages:
+        - Name: source
+          Actions:
+          - Name: serverless-by-matrix
+            ActionTypeId:
+              Category: Source
+              Owner: ThirdParty
+              Version: '1'
+              Provider: GitHub
+            Configuration:
+              Owner: matrixkar
+              Repo: !Ref ProjectName
+              Branch: master
+              OAuthToken: !Ref OAuthToken
+              PollForSourceChanges: false
+            OutputArtifacts:
+            - Name: SourceOutput
+            RunOrder: 1
+        - Name: deploy
+          Actions:
+          - Name: serverless-by-matrix
+            ActionTypeId:
+              Category: Build
+              Owner: AWS
+              Version: '1'
+              Provider: CodeBuild
+            Configuration:
+              ProjectName: !Ref CodeBuildProject
+            InputArtifacts:
+            - Name: SourceOutput
+            RunOrder: 1
+      ArtifactStore:
+        Type: S3
+        Location: !Ref ArtifactsS3Bucket
+
+  Webhook:
+    Type: 'AWS::CodePipeline::Webhook'
+    Properties:
+      Authentication: GITHUB_HMAC
+      AuthenticationConfiguration:
+        SecretToken: !Ref OAuthToken
+      Filters:
+      - JsonPath: !FindInMap [Environments, !Ref Environment, JsonPath]
+        MatchEquals: !FindInMap [Environments, !Ref Environment, MatchEquals]
+      Name: webhook-serverless-by-matrix
+      TargetPipeline: !Ref Pipeline
+      TargetAction: serverless-by-matrix
+      TargetPipelineVersion: !GetAtt Pipeline.Version
+      RegisterWithThirdParty: true
