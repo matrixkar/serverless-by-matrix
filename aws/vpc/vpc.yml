@@ -1,0 +1,223 @@
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: ${self:custom.config.${self:provider.stage}.vpc_cidr}
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+      - Key: Name
+        Value: serverless-vpc-${self:provider.stage}
+  
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value: serverless-igw-${self:custom.stage}
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId:
+        Ref: InternetGateway
+      VpcId:
+        Ref: VPC
+  
+  PublicSubnetAZ1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: VPC
+      AvailabilityZone:
+        Fn::Select:
+        - 0
+        - Fn::GetAZs: ''
+      CidrBlock: ${self:custom.config.${self:provider.stage}.public_subnet_az1}
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: Name
+        Value: public-az1-${self:provider.stage}
+
+  PrivateSubnetAZ1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: VPC
+      AvailabilityZone:
+        Fn::Select:
+        - 0
+        - Fn::GetAZs: ''
+      CidrBlock: ${self:custom.config.${self:provider.stage}.private_subnet_az1}
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: private-az1-${self:provider.stage}
+  
+  PublicSubnetAZ2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: VPC
+      AvailabilityZone:
+        Fn::Select:
+        - 1
+        - Fn::GetAZs: ''
+      CidrBlock: ${self:custom.config.${self:provider.stage}.public_subnet_az2}
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: Name
+        Value: public-az2-${self:provider.stage}
+
+  PrivateSubnetAZ2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: VPC
+      AvailabilityZone:
+        Fn::Select:
+        - 1
+        - Fn::GetAZs: ''
+      CidrBlock: ${self:custom.config.${self:provider.stage}.private_subnet_az2}
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: private-az2-${self:provider.stage}
+ 
+  NatGatewayEIP:
+    Type: AWS::EC2::EIP
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      Domain: vpc
+
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId:
+        Fn::GetAtt:
+        - NatGatewayEIP
+        - AllocationId
+      SubnetId:
+        Ref: PublicSubnetAZ1
+  
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: VPC
+      Tags:
+      - Key: Name
+        Value: public-route-${self:provider.stage}
+
+  DefaultPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId:
+        Ref: PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Ref: InternetGateway
+
+  PublicSubnetAZ1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: PublicRouteTable
+      SubnetId:
+        Ref: PublicSubnetAZ1
+
+  PublicSubnetAZ2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: PublicRouteTable
+      SubnetId:
+        Ref: PublicSubnetAZ2
+
+  PrivateRouteTableAZ1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: VPC
+      Tags:
+      - Key: Name
+        Value: private-route-az1-${self:provider.stage}
+
+  DefaultPrivateRouteAZ1:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId:
+        Ref: PrivateRouteTableAZ1
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId:
+         Ref: NatGateway
+
+  PrivateSubnetAZ1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: PrivateRouteTableAZ1
+      SubnetId:
+        Ref: PrivateSubnetAZ1
+
+  PrivateRouteTableAZ2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: VPC
+      Tags:
+      - Key: Name
+        Value: private-route-az2-${self:provider.stage}
+
+  DefaultPrivateRouteAZ2:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId:
+        Ref: PrivateRouteTableAZ2
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId:
+        Ref: NatGateway
+
+  PrivateSubnetAZ2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: PrivateRouteTableAZ2
+      SubnetId:
+        Ref: PrivateSubnetAZ2
+
+Outputs:
+  VPC:
+    Description: A reference to the created VPC
+    Value:
+      Ref: VPC
+    Export:
+      Name: serverless-vpc-${self:provider.stage}
+  PrivateSubnet1AZ1:
+    Description: A reference to the private subnet in 1st Availability Zone
+    Value:
+      Ref: PrivateSubnetAZ1
+    Export:
+      Name: PrivateSubnetAZ1-${self:provider.stage}
+  PrivateSubnet1AZ2:
+    Description: A reference to the private subnet in 2nd Availability Zone
+    Value:
+      Ref: PrivateSubnetAZ2
+    Export:
+      Name: PrivateSubnetAZ2-${self:provider.stage}
+
+  PublicSubnetAZ1:
+    Description: A reference to the public subnet in 1st Availability Zone
+    Value:
+      Ref: PublicSubnetAZ1
+    Export:
+      Name: PublicSubnetAZ1-${self:provider.stage}
+  PublicSubnetAZ2:
+    Description: A reference to the public subnet in 2nd Availability Zone
+    Value:
+      Ref: PublicSubnetAZ2
+    Export:
+      Name: PublicSubnetAZ2-${self:provider.stage}
