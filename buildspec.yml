@@ -6,8 +6,8 @@ phases:
   install:
     commands:
     - npm install --silent --progress=false -g serverless@1.42.3 > /dev/null 2>&1
-    - npm install --silent --progress=false -g npm > /dev/null 2>&1
-    - npm install --silent serverless-deployment-bucket --save-dev > /dev/null 2>&1
+    #- npm install --silent --progress=false -g npm > /dev/null 2>&1
+    - npm install --silent serverless-deployment-bucket --save-dev
   pre_build:
     commands:
     - echo Prebuild phase...
