@@ -3,17 +3,17 @@ Description: Pipeline to deploy codepipeline serverless-by-matrix project
 
 Parameters:
   ProjectName:
-    Description: serverless-by-matrix source code
+    Description: serverless-by-matrix GitHub source code
     Type: String
     Default: serverless-by-matrix
   Environment:
-    Description: serverless-by-matrix Environment 
+    Description: serverless-by-matrix Environment deployment
     Type: String
     AllowedValues:
       - staging
       - production
   OAuthToken:
-    Description: OAuthToken to access github
+    Description: OAuthToken to access github repository account
     Type : String
     NoEcho: true
 
@@ -30,7 +30,7 @@ Resources:
   ArtifactsS3Bucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: serverless-by-matrix
+      BucketName: serverless-iac-by-matrix
       AccessControl: BucketOwnerFullControl
       BucketEncryption:
         ServerSideEncryptionConfiguration:
@@ -52,7 +52,7 @@ Resources:
       Environment:
         Type: LINUX_CONTAINER
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/docker:18.09.0
+        Image: aws/codebuild/nodejs:7.0.0
       Source:
         Type: CODEPIPELINE
         BuildSpec: !Sub buildspec.yml
@@ -62,11 +62,11 @@ Resources:
     Type: AWS::CodePipeline::Pipeline
     Properties:
       RoleArn: arn:aws:iam::${AWS::AccountId}:role/CodePipelineExecutionRole
-      Name: aws-devops-course
+      Name: serverless-iac-pipeline
       Stages:
         - Name: source
           Actions:
-          - Name: serverless-by-matrix
+          - Name: serverless-iac
             ActionTypeId:
               Category: Source
               Owner: ThirdParty
@@ -109,6 +109,6 @@ Resources:
         MatchEquals: !FindInMap [Environments, !Ref Environment, MatchEquals]
       Name: webhook-serverless-by-matrix
       TargetPipeline: !Ref Pipeline
-      TargetAction: serverless-by-matrix
+      TargetAction: serverless-iac
       TargetPipelineVersion: !GetAtt Pipeline.Version
       RegisterWithThirdParty: true
