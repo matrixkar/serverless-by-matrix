@@ -18,7 +18,7 @@ custom:
     versioning: true
   config:
     staging:
-      aws-account-id: '173333554370'
+      aws-account-id: ''
       bucket-name: serverless-iac-by-matrix
       instance_type: t3a.small
       key_name: serverless-iac
