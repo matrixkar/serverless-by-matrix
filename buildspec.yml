@@ -15,6 +15,7 @@ phases:
     commands:
     - echo Build started on `date`
     - (cd aws/ec2 && serverless deploy --force -v --env=${STAGE})
+    - (cd aws/vpc && serverless deploy --force -v --env=${STAGE})
   post_build:
     commands:
     - echo Build completed on `date`
