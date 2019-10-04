@@ -1,0 +1,37 @@
+service: serverless-iac-vpc
+plugins:
+  - serverless-deployment-bucket
+provider: 
+  name: aws
+  stage: ${self:custom.stage}
+  region: us-east-1
+  cfnRole: arn:aws:iam::${self:custom.config.${self:provider.stage}.aws-account-id}:role/CloudFormationExecutionRole
+  deploymentBucket:
+    name: ${self:custom.config.${self:provider.stage}.bucket-name}
+    serverSideEncryption: AES256
+
+custom:
+  stage: ${opt:env}
+  stack_name: ${self:service}-${self:custom.stage}
+  deploymentBucket:
+    versioning: true
+  config:
+    staging:
+      aws-account-id: ''
+      bucket-name: serverless-iac-by-matrix
+      vpc_cidr: 198.19.0.0/16
+      public_subnet_az1: 198.19.0.0/20
+      public_subnet_az2: 198.19.16.0/20
+      private_subnet_az1: 198.19.64.0/20
+      private_subnet_az2: 198.19.80.0/20
+
+    production:
+      aws-account-id: ''
+      bucket-name: serverless-iac-by-matrix
+      vpc_cidr: 10.2.0.0/16 
+      public_subnet_az1: 10.2.0.0/20 
+      public_subnet_az2: 10.2.16.0/20
+      private_subnet_az1: 10.2.64.0/20 
+      private_subnet_az2: 10.2.80.0/20 
+resources:
+- ${file(vpc.yml)}
