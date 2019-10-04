@@ -1,0 +1,74 @@
+service: serverless-iac-instance 
+plugins:
+  - serverless-deployment-bucket
+
+provider:
+  name: aws
+  stage: ${self:custom.stage}
+  region: us-east-1
+  cfnRole: arn:aws:iam::${self:custom.config.${self:provider.stage}.aws-account-id}:role/CloudFormationExecutionRole
+  deploymentBucket:
+    name: ${self:custom.config.${self:provider.stage}.bucket-name}
+    serverSideEncryption: AES256
+
+custom:
+  stage: ${opt:env}
+  stack_name: ${self:service}-${self:custom.stage}
+  deploymentBucket:
+    versioning: true
+  config:
+    staging:
+      aws-account-id: '173333554370'
+      bucket-name: serverless-iac-by-matrix
+      instance_type: t3a.small
+      key_name: serverless-iac
+      ubuntu_ami: ami-07d0cf3af28718ef8
+      instance_name: grow-meetuops-instance
+      termination_protection: false
+
+    production:
+      aws-account-id: ''
+      bucket-name: serverless-iac-by-matrix
+      instance_type: t3a.medium
+      key_name: serverless-iac
+      ubuntu_ami: ami-07d0cf3af28718ef8
+      instance_name: serverless-instance
+      termination_protection: true
+      
+resources:
+  Resources:
+    SecurityGroup:
+      Type: 'AWS::EC2::SecurityGroup'
+      Properties:
+        GroupDescription: "Security Group for serverless-instance"
+        VpcId:
+          Fn::ImportValue: serverless-vpc-${self:custom.stage}
+        SecurityGroupIngress:
+          - IpProtocol: 'tcp'
+            FromPort: 22
+            ToPort: 22
+            CidrIp: 0.0.0.0/0
+            Description: Allow HTTP
+        Tags:
+        - Key: Name
+          Value: securitygroup-serverless
+
+    IOTMAPSINSTANCE:
+      Type: AWS::EC2::Instance
+      Properties:
+        InstanceType: ${self:custom.config.${self:custom.stage}.instance_type}
+        ImageId: ${self:custom.config.${self:custom.stage}.ubuntu_ami}
+        KeyName: ${self:custom.config.${self:custom.stage}.key_name}
+        DisableApiTermination: ${self:custom.config.${self:custom.stage}.termination_protection}
+        SecurityGroupIds:
+        - Ref: SecurityGroup
+        SubnetId:
+          Fn::ImportValue: PublicSubnetAZ1-${self:custom.stage}
+        UserData:
+          Fn::Base64: |
+            #!/bin/bash -xv
+            sudo apt-get update
+            sudo apt-get install -y git
+        Tags:
+          - Key: Name
+            Value: serverless-instance
