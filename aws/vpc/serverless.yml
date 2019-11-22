@@ -1,6 +1,5 @@
 service: serverless-iac-vpc
-plugins:
-  - serverless-deployment-bucket
+
 provider: 
   name: aws
   stage: ${self:custom.stage}
